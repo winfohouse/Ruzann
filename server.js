@@ -4,7 +4,6 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 
-// 🔥 Make sure BOTH lines exist
 const PUBLIC_DIR = path.join(__dirname, "public");
 const ASSIST_DIR = path.join(__dirname, "assist");
 
@@ -16,46 +15,53 @@ const mime = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
-  ".mp4": "video/mp4"
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".jpeg": "image/jpeg"
 };
 
+// MAIN SERVER
 const server = http.createServer((req, res) => {
-  let urlPath = req.url;
+  let urlPath = decodeURIComponent(req.url); // handle %20 etc
+
   let filePath;
 
-  // 1️⃣ assist routing
+  // ----------- ASSIST (STATIC ASSETS) -----------
   if (urlPath.startsWith("/assist")) {
-    let assistPath = urlPath.replace("/assist", "") || "/index.html";
+    // Everything inside assist folder is served **exactly as-is**
+    const relative = urlPath.replace("/assist", ""); // remove prefix
+    filePath = path.join(ASSIST_DIR, relative);
 
-    if (!path.extname(assistPath)) {
-      assistPath += ".html";
-    }
-
-    filePath = path.join(ASSIST_DIR, assistPath);
+    return serveFile(filePath, res);
   }
 
-  // 2️⃣ public routing
-  else {
-    if (urlPath === "/") urlPath = "/index.html";
-    if (!path.extname(urlPath)) urlPath += ".html";
+  // ----------- PUBLIC ROUTES -----------
+  if (urlPath === "/") urlPath = "/index.html";
+  else if (!path.extname(urlPath)) urlPath += ".html";
 
-    filePath = path.join(PUBLIC_DIR, urlPath);
-  }
+  filePath = path.join(PUBLIC_DIR, urlPath);
 
+  serveFile(filePath, res);
+});
+
+// ----------- FILE SENDING FUNCTION -----------
+function serveFile(filePath, res) {
   const ext = path.extname(filePath);
-  const contentType = mime[ext] || "text/plain";
+  const contentType = mime[ext] || "application/octet-stream";
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
       res.writeHead(404, { "Content-Type": "text/plain" });
-      return res.end("404 Not Found");
+      res.end("404 Not Found");
+      return;
     }
 
     res.writeHead(200, { "Content-Type": contentType });
     res.end(content);
   });
-});
+}
 
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log("Server running on port " + PORT);
 });
